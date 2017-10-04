@@ -17,8 +17,8 @@ const(
 )
 
 var key_infile = flag.String("d", "", "Decryption mode. Follow immediately by \"key\" file.")
-var key_outfile = flag.String("o", "", "Output file to deposit the \"key\" data. Default is derivated from input filename.")
-var chunk_size = flag.Int("c", DEFAULT_CHUNK_SIZE, fmt.Sprintf("Chunk size and buffer sizes (x3). Default is %d", DEFAULT_CHUNK_SIZE))
+var key_outfile = flag.String("o", "", "Output file to deposit the \"key\" data in encryption mode or \"plaintext\" data in decryption mode. Default is derivated from input filename.")
+var chunk_size = flag.Int("c", DEFAULT_CHUNK_SIZE, "Chunk size and buffer sizes (x3)")
 
 func main() {
 	flag.Parse()
