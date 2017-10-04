@@ -47,6 +47,7 @@ func main() {
 							plain_buffer, key_buffer, cipher_buffer)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
 		}
 	}
 }
