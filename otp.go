@@ -34,8 +34,8 @@ func main() {
 	key_buffer := make([]byte, *chunk_size)
 	
 	if *key_infile == "" { // Encryption mode, or useless decryption input, somehow
-		var plain_filename string = flag.Arg(0)
-		var cipher_filename string = fmt.Sprintf("%s.%s", plain_filename, DEFAULT_CIPHER_EXTENSION)
+		plain_filename := flag.Arg(0)
+		cipher_filename := fmt.Sprintf("%s.%s", plain_filename, DEFAULT_CIPHER_EXTENSION)
 		var key_filename string
 		if *key_outfile != "" {
 			key_filename = *key_outfile
