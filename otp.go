@@ -7,7 +7,6 @@ import(
 	"path/filepath"
 	"io"
 	"flag"
-	"strings"
 	"crypto/rand"
 	"github.com/blackhawk42/pathutils"
 )
@@ -56,10 +55,24 @@ func main() {
 		
 		cipher_filename := flag.Arg(0)
 		key_filename := *key_infile
+		var plain_filename string
 		if *outfile != "" {
-			plain_filename := *outfile
+			plain_filename = *outfile
 		} else {
-			plain_filename := pathutils.Splitext(cipher_filename) // Remove cipher extension 
+			cipher_basename, ext := pathutils.Splitext(cipher_filename)
+			if ext == fmt.Sprintf(".%s", DEFAULT_CIPHER_EXTENSION) {
+				plain_filename = cipher_basename
+			} else {
+				fmt.Fprintf(os.Stderr, "Please let the input have a \"%s\" termination, or explicitly name an output\n", DEFAULT_CIPHER_EXTENSION)
+				os.Exit(1)
+			}
+		}
+		
+		err := DecryptFiles(cipher_filename, key_filename, plain_filename,
+							cipher_buffer, key_buffer, plain_buffer)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			os.Exit(1)
 		}
 	}
 }
@@ -86,7 +99,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 	// Plaintext
 	fplain, err := os.Open(plain_filename)
 	if err != nil {
-		report := &ErrorReport
+		report := &ErrorReport{}
 		report.Msg = "unexpected error while opening plaintext file"
 		report.Err = err
 		return report
@@ -97,7 +110,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 	// Ciphertext
 	fcipher, err := os.Create(cipher_filename)
 	if err != nil {
-		report := &ErrorReport
+		report := &ErrorReport{}
 		report.Msg = "unexpected error while creating ciphertext file"
 		report.Err = err
 		return report
@@ -108,7 +121,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 	// Keyfile
 	fkey, err := os.Create(key_filename)
 	if err != nil {
-		report := &ErrorReport
+		report := &ErrorReport{}
 		report.Msg = "unexpected error while creating key output file"
 		report.Err = err
 		return report
@@ -120,9 +133,8 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 	
 	for { // Main loop
 		n, err := plainReader.Read(plain_buffer)
-		//fmt.Printf("n: %d\n", n) // Debugging
 		if err != nil && err != io.EOF {
-			report := &ErrorReport
+			report := &ErrorReport{}
 			report.Msg = "unexpected error while reading from plaintext\n"
 			report.Err = err
 			return report
@@ -133,7 +145,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 		
 		_, err = rng.Read(key_buffer[:n])
 		if err != nil && err != io.EOF {
-			report := &ErrorReport
+			report := &ErrorReport{}
 			report.Msg = "unexpected error while generating key"
 			report.Err = err
 			return report
@@ -141,7 +153,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 		
 		err = XorSlices(plain_buffer[:n], key_buffer[:n], cipher_buffer[:n])
 		if err != nil {
-			report := &ErrorReport
+			report := &ErrorReport{}
 			report.Msg = "unexpected error while xoring slices"
 			report.Err = err
 			return report
@@ -149,7 +161,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 		
 		_, err = cipherWriter.Write(cipher_buffer[:n])
 		if err != nil {
-			report := &ErrorReport
+			report := &ErrorReport{}
 			report.Msg = "unexpected error while writing ciphertext\n"
 			report.Err = err
 			return report
@@ -157,18 +169,98 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 		
 		_, err = keyWriter.Write(key_buffer[:n])
 		if err != nil {
-			report := &ErrorReport
+			report := &ErrorReport{}
 			report.Msg = "unexpected error while writing key to file"
 			report.Err = err
 			return report
 		}
-		
 	}
+	cipherWriter.Flush()
+	keyWriter.Flush()
 	
 	return nil
 }
 
-func decryptFiles
+func DecryptFiles(cipher_filename, key_filename, plain_filename string,
+					cipher_buffer, key_buffer, plain_buffer []byte) error {
+	
+	// Create file objects
+	// Plaintext
+	fcipher, err := os.Open(cipher_filename)
+	if err != nil {
+		report := &ErrorReport{}
+		report.Msg = "unexpected error when reading ciphertext file"
+		report.Err = err
+		return report
+	}
+	defer fcipher.Close()
+	cipherReader := bufio.NewReader(fcipher)
+	
+	// Key
+	fkey, err := os.Open(key_filename)
+	if err != nil {
+		report := &ErrorReport{}
+		report.Msg = "unexpected error when reading key file"
+		report.Err = err
+		return report
+	}
+	defer fkey.Close()
+	keyReader := bufio.NewReader(fkey)
+	
+	// Plaintext
+	fplain, err := os.Create(plain_filename)
+	if err != nil {
+		report := &ErrorReport{}
+		report.Msg = "unexpected error when creating plaintext file"
+		report.Err = err
+		return report
+	}
+	defer fplain.Close()
+	plainWriter := bufio.NewWriter(fplain)
+	
+	// "Crypto"
+	
+	for {
+		n, err := cipherReader.Read(cipher_buffer)
+		if err != nil && err != io.EOF {
+			report := &ErrorReport{}
+			report.Msg = "unexpected error while reading from ciphertext\n"
+			report.Err = err
+			return report
+		}
+		if n == 0 {
+			break
+		}
+		
+		// Note [:n]. It's the user's problem if size(key) != size(cipher)
+		_, err = keyReader.Read(key_buffer[:n])
+		if err != nil && err != io.EOF {
+			report := &ErrorReport{}
+			report.Msg = "unexpected error while reading from key file\n"
+			report.Err = err
+			return report
+		}
+		
+		err = XorSlices(cipher_buffer[:n], key_buffer[:n], plain_buffer[:n])
+		if err != nil {
+			report := &ErrorReport{}
+			report.Msg = "unexpected coring slices\n"
+			report.Err = err
+			return report
+		}
+		
+		_, err = plainWriter.Write(plain_buffer[:n])
+		if err != nil {
+			report := &ErrorReport{}
+			report.Msg = "unexpected error while writing ciphertext\n"
+			report.Err = err
+			return report
+		}
+	}
+	plainWriter.Flush()
+	
+	return nil
+}
 
 // XorSlices xors two input slices into one output, all of the same size.
 func XorSlices(input1, input2, output []byte) error {
