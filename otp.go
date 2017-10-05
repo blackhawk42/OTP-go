@@ -12,7 +12,8 @@ import(
 )
 
 const(
-	DEFAULT_CHUNK_SIZE int = 32*1024
+	DEFAULT_CHUNK_SIZE int = 4096
+	DEFAULT_IO_BUFFER_SIZE int = 16*DEFAULT_CHUNK_SIZE
 	DEFAULT_CIPHER_EXTENSION string = "otp"
 	DEFAULT_KEY_EXTENSION string = "otpk"
 )
@@ -20,6 +21,7 @@ const(
 var key_infile = flag.String("d", "", "Decryption mode. Follow immediately by \"key\" file.")
 var outfile = flag.String("o", "", "Output file to deposit the \"key\" data in encryption mode or \"plaintext\" data in decryption mode. Default is derivated from input filename.")
 var chunk_size = flag.Int("c", DEFAULT_CHUNK_SIZE, "Chunk size and buffer sizes (x3)")
+var io_buffer_size = flag.Int("b", DEFAULT_IO_BUFFER_SIZE, "Size of I/O buffers (x3)")
 
 func main() {
 	flag.Parse()
@@ -46,7 +48,7 @@ func main() {
 		}
 		
 		err := EncryptFiles(plain_filename, key_filename, cipher_filename,
-							plain_buffer, key_buffer, cipher_buffer)
+							plain_buffer, key_buffer, cipher_buffer, *io_buffer_size)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
@@ -69,7 +71,7 @@ func main() {
 		}
 		
 		err := DecryptFiles(cipher_filename, key_filename, plain_filename,
-							cipher_buffer, key_buffer, plain_buffer)
+							cipher_buffer, key_buffer, plain_buffer, *io_buffer_size)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			os.Exit(1)
@@ -91,7 +93,7 @@ func (e *ErrorReport) Error() string {
 // buffers to work with them and xor them, writing both the key and the
 // ciphertext to a file.
 func EncryptFiles(plain_filename, key_filename, cipher_filename string,
-					plain_buffer, key_buffer, cipher_buffer []byte) error {
+					plain_buffer, key_buffer, cipher_buffer []byte, io_buffer_size int) error {
 						
 	rng := bufio.NewReader(rand.Reader)
 		
@@ -105,7 +107,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 		return report
 	}
 	defer fplain.Close()
-	plainReader := bufio.NewReader(fplain)
+	plainReader := bufio.NewReaderSize(fplain, io_buffer_size)
 	
 	// Ciphertext
 	fcipher, err := os.Create(cipher_filename)
@@ -116,7 +118,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 		return report
 	}
 	defer fcipher.Close()
-	cipherWriter := bufio.NewWriter(fcipher)
+	cipherWriter := bufio.NewWriterSize(fcipher, io_buffer_size)
 	
 	// Keyfile
 	fkey, err := os.Create(key_filename)
@@ -127,7 +129,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 		return report
 	}
 	defer fkey.Close()
-	keyWriter := bufio.NewWriter(fkey)
+	keyWriter := bufio.NewWriterSize(fkey, io_buffer_size)
 	
 	// "Crypto"
 	
@@ -182,7 +184,7 @@ func EncryptFiles(plain_filename, key_filename, cipher_filename string,
 }
 
 func DecryptFiles(cipher_filename, key_filename, plain_filename string,
-					cipher_buffer, key_buffer, plain_buffer []byte) error {
+					cipher_buffer, key_buffer, plain_buffer []byte, io_buffer_size int) error {
 	
 	// Create file objects
 	// Plaintext
@@ -194,7 +196,7 @@ func DecryptFiles(cipher_filename, key_filename, plain_filename string,
 		return report
 	}
 	defer fcipher.Close()
-	cipherReader := bufio.NewReader(fcipher)
+	cipherReader := bufio.NewReaderSize(fcipher, io_buffer_size)
 	
 	// Key
 	fkey, err := os.Open(key_filename)
@@ -205,7 +207,7 @@ func DecryptFiles(cipher_filename, key_filename, plain_filename string,
 		return report
 	}
 	defer fkey.Close()
-	keyReader := bufio.NewReader(fkey)
+	keyReader := bufio.NewReaderSize(fkey, io_buffer_size)
 	
 	// Plaintext
 	fplain, err := os.Create(plain_filename)
@@ -216,7 +218,7 @@ func DecryptFiles(cipher_filename, key_filename, plain_filename string,
 		return report
 	}
 	defer fplain.Close()
-	plainWriter := bufio.NewWriter(fplain)
+	plainWriter := bufio.NewWriterSize(fplain, io_buffer_size)
 	
 	// "Crypto"
 	
