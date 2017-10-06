@@ -26,7 +26,7 @@ func main() {
 	var io_buffer_size = flag.Int("b", DEFAULT_IO_BUFFER_SIZE, "`size` in bytes of I/O buffers (x3)")
 	
 	flag.Usage = func(){
-		fmt.Fprintf(os.Stderr, "%s: [-c chunk_size] [-d key_file] [-o output_file] input_file\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "%s: %[1]s [-c chunk_size] [-d key_file] [-o output_file] input_file\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	
