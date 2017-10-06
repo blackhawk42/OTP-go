@@ -18,12 +18,18 @@ const(
 	DEFAULT_KEY_EXTENSION string = "otpk"
 )
 
-var key_infile = flag.String("d", "", "Decryption mode. Follow immediately by \"key\" file.")
-var outfile = flag.String("o", "", "Output file to deposit the \"key\" data in encryption mode or \"plaintext\" data in decryption mode. Default is derivated from input filename.")
-var chunk_size = flag.Int("c", DEFAULT_CHUNK_SIZE, "Chunk size and buffer sizes (x3)")
-var io_buffer_size = flag.Int("b", DEFAULT_IO_BUFFER_SIZE, "Size of I/O buffers (x3)")
-
 func main() {
+	// Flags configuration
+	var key_infile = flag.String("d", "", "decryption mode. Follow immediately by `key file`.")
+	var outfile = flag.String("o", "", "`output file` to deposit the \"key\" data in encryption mode or \"plaintext\" data in decryption mode. Default is derivated from input filename.")
+	var chunk_size = flag.Int("c", DEFAULT_CHUNK_SIZE, "chunk `size` and working buffers sizes in bytes (x3)")
+	var io_buffer_size = flag.Int("b", DEFAULT_IO_BUFFER_SIZE, "`size` in bytes of I/O buffers (x3)")
+	
+	flag.Usage = func(){
+		fmt.Fprintf(os.Stderr, "%s: [-c chunk_size] [-d key_file] [-o output_file] input_file\n", filepath.Base(os.Args[0]))
+		flag.PrintDefaults()
+	}
+	
 	flag.Parse()
 	
 	if len(flag.Args()) == 0 {
