@@ -33,7 +33,7 @@ func main() {
 	flag.Parse()
 	
 	if len(flag.Args()) == 0 {
-		fmt.Fprintf(os.Stderr, "%s: Specify at least one target file\n", filepath.Base(os.Args[0]))
+		flag.Usage()
 		os.Exit(2)
 	}
 	
